@@ -56,7 +56,12 @@ services:
         condition: service_healthy
     environment:
       KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      DYNAMODB_URL: "http://dynamodb-local:8000"
+      DYNAMODB_TABLE: Products
       INVENTORY_TOPIC: ProductInventory
+      AWS_ACCESS_KEY_ID: "NoKey"
+      AWS_SECRET_ACCESS_KEY: "NoKey"
+      AWS_DEFAULT_REGION: "us-east-1"
 
   dynamodb-local: # Simulate a Cloud DynamoDB
     image: amazon/dynamodb-local:2.5.3
