@@ -57,3 +57,25 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
       INVENTORY_TOPIC: ProductInventory
+
+  dynamodb-local: # Simulate a Cloud DynamoDB
+    image: amazon/dynamodb-local:2.5.3
+    ports:
+      - "8000:8000"
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
+    volumes:
+      - "./volumes/dynamodb:/home/dynamodblocal/data"
+    working_dir: /home/dynamodblocal
+
+  dynamodb-init:
+    image: amazon/aws-cli
+    depends_on:
+      dynamodb-local:
+        condition: service_started
+    volumes:
+      - "./schemas:/tmp/dynamo"
+    entrypoint: ["sh", "-c", "if aws dynamodb describe-table --endpoint-url http://dynamodb-local:8000 --table-name Products; then echo 'Table already exists'; else aws dynamodb create-table --endpoint-url http://dynamodb-local:8000 --cli-input-json file:///tmp/dynamo/inventory.json; fi"]
+    environment:
+      AWS_ACCESS_KEY_ID: "NoKey"
+      AWS_SECRET_ACCESS_KEY: "NoKey"
+      AWS_DEFAULT_REGION: "us-east-1"

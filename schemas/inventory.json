@@ -1,0 +1,24 @@
+{
+  "TableName": "Products",
+  "KeySchema": [
+    {
+      "KeyType": "HASH",
+      "AttributeName": "merchantId"
+    },
+    {
+      "KeyType": "RANGE",
+      "AttributeName": "productId"
+    }
+  ],
+  "AttributeDefinitions": [
+    {
+      "AttributeName": "merchantId",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "productId",
+      "AttributeType": "S"
+    }
+  ],
+  "BillingMode": "PAY_PER_REQUEST"
+}
