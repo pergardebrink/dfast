@@ -36,3 +36,13 @@ services:
       kafka:
         condition: service_healthy
     init: true
+
+  ingest-api:
+    build: ./src/ingest_api
+    ports:
+      - "4444:80"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"

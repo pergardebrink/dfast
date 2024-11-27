@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "ingestapi"
+version = "0.1.0"
+description = ""
+authors = ["Per Gårdebrink <per.gardebrink@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115.5"
+uvicorn = "^0.32.1"
+pydantic = "^2.10.2"
+confluent-kafka = "^2.6.1"
+pydantic-settings = "^2.6.1"
+
+
+[tool.poetry.group.dev.dependencies]
+flake8 = "^7.1.1"
+black = "^24.10.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
