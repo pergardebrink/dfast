@@ -28,7 +28,7 @@ async def write_order_data(merchantId: str, item: OrderItem):
     composite_key = f"{merchantId}#{item.orderId}#{item.productId}"
     topic_item = OrderItemWithMerchant(**item.model_dump(), merchantId=merchantId)
 
-    producer.produce('ProductOrder', key=composite_key, value=topic_item.model_dump_json(), on_delivery=delivery_report)
+    producer.produce(settings.productorder_topic, key=composite_key, value=topic_item.model_dump_json(), on_delivery=delivery_report)
     producer.flush()
     return {"status": "OK"}
 
@@ -38,6 +38,6 @@ async def write_inventory_data(merchantId: str, item: ProductInventory):
     composite_key = f"{merchantId}#{item.productId}"
     topic_item = ProductInventoryWithMerchant(**item.model_dump(), merchantId=merchantId)
 
-    producer.produce('ProductInventory', key=composite_key, value=topic_item.model_dump_json(), on_delivery=delivery_report)
+    producer.produce(settings.inventory_topic, key=composite_key, value=topic_item.model_dump_json(), on_delivery=delivery_report)
     producer.flush()
     return {"status": "OK"}

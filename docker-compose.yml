@@ -46,3 +46,5 @@ services:
         condition: service_healthy
     environment:
       KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      INVENTORY_TOPIC: ProductInventory
+      PRODUCTORDER_TOPIC: ProductOrder
