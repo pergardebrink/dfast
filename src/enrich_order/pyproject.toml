@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "enrichorder"
+version = "0.1.0"
+description = ""
+authors = ["Per Gårdebrink <per.gardebrink@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = "^2.10.2"
+boto3 = "^1.35.70"
+confluent-kafka = "^2.6.1"
+pydantic-settings = "^2.6.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
