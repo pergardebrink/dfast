@@ -38,7 +38,7 @@ data_buffer = {}
 def flush_merchantdata(merchant_id: str):
     print(f"Flushing buffer for merchant {merchant_id}")
     timestamp = datetime.now()
-    folder = timestamp.strftime("year=%Y/month=%m/day=%d")
+    folder = timestamp.strftime("year=%Y/month=%m/day=%d/hour=%H_00")
     full_datetime = timestamp.strftime("%Y%m%d_%H%M%S")
     file_name = f"merchant={merchant_id}/{folder}/{merchant_id}_{full_datetime}.json"
 
