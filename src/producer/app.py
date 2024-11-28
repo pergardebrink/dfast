@@ -12,7 +12,7 @@ def main(file_path, merchant_id, endpoint_type):
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
             session.post(url, json=row)
-            print(".", end="")
+            print(".", end="", flush=True)
 
     print("\nAll data posted successfully.")
 
