@@ -162,4 +162,5 @@ cython_debug/
 #.idea/
 
 volumes/dynamodb/*.db
-docker/minio-data/.minio.sys/**/* 
+volumes/minio-data
+!volumes/minio-data/README.md
