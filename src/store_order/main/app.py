@@ -1,3 +1,4 @@
+from io import BytesIO
 import signal
 import sys
 from datetime import datetime
@@ -6,8 +7,6 @@ from confluent_kafka import Consumer, KafkaError
 from minio import Minio
 from appsettings import Settings
 from models.productinventory import EnrichedProductWithMerchant
-import tempfile
-import os
 
 settings = Settings()
 
@@ -42,14 +41,17 @@ def flush_merchantdata(merchant_id: str):
     folder = timestamp.strftime("year=%Y/month=%m/day=%d")
     full_datetime = timestamp.strftime("%Y%m%d_%H%M%S")
     file_name = f"merchant={merchant_id}/{folder}/{merchant_id}_{full_datetime}.json"
-    with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=".json") as temp_file:
-        data_dicts = [item.dict() for item in data_buffer[merchant_id]]
-        json.dump(data_dicts, temp_file)
-        temp_filename = temp_file.name
-        print(f"Writing to temporary file {temp_filename}")
 
-    client.fput_object(bucket_name, file_name, temp_filename)
-    os.remove(temp_filename)
+    data_dicts = [item.dict() for item in data_buffer[merchant_id]]
+    json_data = json.dumps(data_dicts).encode('utf-8')
+    data_stream = BytesIO(json_data)
+    client.put_object(
+        bucket_name,
+        file_name,
+        data_stream,
+        len(json_data),
+        content_type='application/json'
+    )
     data_buffer[merchant_id] = []
 
 
