@@ -11,6 +11,7 @@ print("Starting inventory consumer...")
 print(f"Kafka: {settings.kafka_bootstrap_servers}")
 print(f"Inventory Topic: {settings.inventory_topic}")
 print(f"DynamoDB: {settings.dynamodb_url}")
+print(f"DynamoDB Table: {settings.dynamodb_table}")
 
 dynamodb = boto3.resource('dynamodb', endpoint_url=settings.dynamodb_url)
 table = dynamodb.Table(settings.dynamodb_table)
