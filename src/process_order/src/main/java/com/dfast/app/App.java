@@ -5,20 +5,21 @@ import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
+import org.apache.flink.streaming.api.functions.co.RichCoMapFunction;
+import org.apache.flink.util.Collector;
 
 import java.util.Properties;
+
 
 public class App {
     public static void main(String[] args) throws Exception {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-
-        Properties properties = new Properties();
-        properties.setProperty("bootstrap.servers", "kafka:9092");
-        properties.setProperty("group.id", "flink-group");
 
         KafkaSource<ProductInventory> source = KafkaSource.<ProductInventory>builder()
             .setBootstrapServers("kafka:9092")
@@ -28,11 +29,25 @@ public class App {
             .setValueOnlyDeserializer(new ProductInventoryDeserializer())
             .build();
 
+        KafkaSource<OrderItem> orderSource = KafkaSource.<OrderItem>builder()
+            .setBootstrapServers("kafka:9092")
+            .setTopics("ProductOrder")
+            .setGroupId("order-group")
+            .setStartingOffsets(OffsetsInitializer.earliest())
+            .setValueOnlyDeserializer(new OrderDeserializer())
+            .build();
 
-        DataStream<ProductInventory> inventoryStream =  env.fromSource(
+
+        DataStream<ProductInventory> inventoryStream = env.fromSource(
             source,
             WatermarkStrategy.noWatermarks(),
-            "Kafka Source"
+            "Inventory Source"
+        );
+
+        DataStream<OrderItem> orderStream = env.fromSource(
+            orderSource,
+            WatermarkStrategy.noWatermarks(),
+            "Order Source"
         );
 
         MapStateDescriptor<String, ProductInventory> inventoryStateDescriptor = new MapStateDescriptor<>(
@@ -41,9 +56,14 @@ public class App {
                 Types.POJO(ProductInventory.class)
         );
 
-        inventoryStream.keyBy(inventory -> {
-                return inventory.getProductId();
-        }).map(new RichMapFunction<ProductInventory, String>() {
+        KeyedStream<OrderItem, String> keyedOrderStream = orderStream
+            .keyBy(OrderItem::getProductId);
+
+        KeyedStream<ProductInventory, String> keyedProductInventoryStream = inventoryStream
+            .keyBy(ProductInventory::getProductId);
+
+
+        keyedProductInventoryStream.connect(keyedOrderStream).map(new RichCoMapFunction<ProductInventory, OrderItem, String>() {
             private transient MapState<String, ProductInventory> inventoryState;
 
             @Override
@@ -52,14 +72,33 @@ public class App {
             }
 
             @Override
-            public String map(ProductInventory inventory) throws Exception {
+            public String map1(ProductInventory inventory) throws Exception {
+                String productId = inventory.getProductId();
+                System.out.println("Updating inventory for Product Id: " + productId);
+                inventoryState.put(productId, inventory);
+                return productId;
+            }
 
-                inventoryState.put(inventory.getProductId(), inventory);
-                System.out.println("Updated Inventory: " + inventory);
-                return inventory.getProductId();
+            @Override
+            public String map2(OrderItem orderItem) throws Exception {
+                String productId = orderItem.getProductId();
+                System.out.println("Trying to get product Id from state: " + productId);
+                
+                ProductInventory inventory = inventoryState.get(productId);
+                if (inventory != null) {
+                    int currentQuantity = inventory.getQuantity();
+                    int orderQuantity = orderItem.getQuantity();
+                    int newQuantity = currentQuantity - orderQuantity;
+
+                    System.out.println("Product Id: " + productId + ", old quantity: " + currentQuantity + ", order quantity: " + orderQuantity + ", new Quantity: " + newQuantity);
+                    inventory.setQuantity(newQuantity);
+                    inventoryState.put(productId, inventory);
+                }
+
+                return productId;
             }
         });
 
-        env.execute("Update Inventory State");
+        env.execute("Process Orders");
     }
 }
