@@ -135,7 +135,26 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - "./volumes/minio-data:/data"
+  
+  jobmanager:
+    image: flink:1.20
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    volumes:
+      - ./src/process_order/target:/opt/flink/jobs
 
+  taskmanager:
+    image: flink:1.20
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    deploy:
+      replicas: 2
   minio-init:
     image: minio/mc
     depends_on:
