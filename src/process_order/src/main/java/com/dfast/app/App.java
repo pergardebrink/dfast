@@ -1,8 +1,8 @@
 package com.dfast.app;
-import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
@@ -10,12 +10,7 @@ import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.streaming.api.functions.co.RichCoMapFunction;
-import org.apache.flink.util.Collector;
-
-import java.util.Properties;
-
 
 public class App {
     public static void main(String[] args) throws Exception {
@@ -50,21 +45,24 @@ public class App {
             "Order Source"
         );
 
-        MapStateDescriptor<String, ProductInventory> inventoryStateDescriptor = new MapStateDescriptor<>(
-                "inventoryState",
-                Types.STRING,
-                Types.POJO(ProductInventory.class)
+        MapStateDescriptor<CompositeKey, ProductInventory> inventoryStateDescriptor = new MapStateDescriptor<>(
+            "inventoryState",
+            TypeInformation.of(CompositeKey.class),
+            Types.POJO(ProductInventory.class)
         );
 
-        KeyedStream<OrderItem, String> keyedOrderStream = orderStream
-            .keyBy(OrderItem::getProductId);
+        KeyedStream<OrderItem, CompositeKey> keyedOrderStream = orderStream
+            .keyBy(item -> {
+                return new CompositeKey(item.getMerchantId(), item.getProductId());
+            });
 
-        KeyedStream<ProductInventory, String> keyedProductInventoryStream = inventoryStream
-            .keyBy(ProductInventory::getProductId);
+        KeyedStream<ProductInventory, CompositeKey> keyedProductInventoryStream = inventoryStream
+            .keyBy(item -> {
+                return new CompositeKey(item.getMerchantId(), item.getProductId());
+            });
 
-
-        keyedProductInventoryStream.connect(keyedOrderStream).map(new RichCoMapFunction<ProductInventory, OrderItem, String>() {
-            private transient MapState<String, ProductInventory> inventoryState;
+        keyedProductInventoryStream.connect(keyedOrderStream).map(new RichCoMapFunction<ProductInventory, OrderItem, CompositeKey>() {
+            private transient MapState<CompositeKey, ProductInventory> inventoryState;
 
             @Override
             public void open(Configuration parameters) {
@@ -72,30 +70,29 @@ public class App {
             }
 
             @Override
-            public String map1(ProductInventory inventory) throws Exception {
-                String productId = inventory.getProductId();
-                System.out.println("Updating inventory for Product Id: " + productId);
-                inventoryState.put(productId, inventory);
-                return productId;
+            public CompositeKey map1(ProductInventory inventory) throws Exception {
+                CompositeKey key = new CompositeKey(inventory.getMerchantId(), inventory.getProductId());
+                System.out.println("Updating inventory for Product Id: " + key.getProductId());
+                inventoryState.put(key, inventory);
+                return key;
             }
 
             @Override
-            public String map2(OrderItem orderItem) throws Exception {
-                String productId = orderItem.getProductId();
-                System.out.println("Trying to get product Id from state: " + productId);
-                
-                ProductInventory inventory = inventoryState.get(productId);
+            public CompositeKey map2(OrderItem orderItem) throws Exception {
+                CompositeKey key = new CompositeKey(orderItem.getMerchantId(), orderItem.getProductId());
+               
+                ProductInventory inventory = inventoryState.get(key);
                 if (inventory != null) {
                     int currentQuantity = inventory.getQuantity();
                     int orderQuantity = orderItem.getQuantity();
                     int newQuantity = currentQuantity - orderQuantity;
 
-                    System.out.println("Product Id: " + productId + ", old quantity: " + currentQuantity + ", order quantity: " + orderQuantity + ", new Quantity: " + newQuantity);
+                    System.out.println("Product Id: " + key.getProductId() + ", old quantity: " + currentQuantity + ", order quantity: " + orderQuantity + ", new Quantity: " + newQuantity);
                     inventory.setQuantity(newQuantity);
-                    inventoryState.put(productId, inventory);
+                    inventoryState.put(key, inventory);
                 }
 
-                return productId;
+                return key;
             }
         });
 
